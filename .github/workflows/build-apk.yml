@@ -26,16 +26,6 @@ jobs:
         distribution: 'temurin'
         java-version: '8'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      with:
-        api-level: 33
-        build-tools: 33.0.2
-        ndk-version: 25.2.9519653
-
-    - name: Accept Android SDK licenses
-      run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -47,7 +37,48 @@ jobs:
           libssl-dev \
           autoconf \
           libtool \
-          pkg-config
+          pkg-config \
+          unzip \
+          wget
+
+    - name: Setup Android SDK manually
+      run: |
+        # Create Android SDK directory
+        sudo mkdir -p /opt/android-sdk
+        sudo chown -R $USER:$USER /opt/android-sdk
+        
+        # Download and install command line tools
+        cd /tmp
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        mkdir -p /opt/android-sdk/cmdline-tools
+        mv cmdline-tools /opt/android-sdk/cmdline-tools/latest
+        
+        # Set environment variables
+        echo "ANDROID_HOME=/opt/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=/opt/android-sdk" >> $GITHUB_ENV
+        echo "/opt/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "/opt/android-sdk/platform-tools" >> $GITHUB_PATH
+
+    - name: Accept Android SDK licenses and install components
+      run: |
+        export ANDROID_HOME=/opt/android-sdk
+        export ANDROID_SDK_ROOT=/opt/android-sdk
+        export PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
+        
+        # Accept all licenses
+        yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install required components matching buildozer.spec
+        /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.2" \
+          "ndk;25.2.9519653"
+        
+        # Verify installation
+        ls -la /opt/android-sdk/build-tools/
+        /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
 
     - name: Install Python dependencies
       run: |
@@ -72,10 +103,17 @@ jobs:
 
     - name: Build APK
       run: |
+        export ANDROID_HOME=/opt/android-sdk
+        export ANDROID_SDK_ROOT=/opt/android-sdk
+        export PATH=$PATH:/opt/android-sdk/cmdline-tools/latest/bin:/opt/android-sdk/platform-tools
+        
+        # Debug: Print environment
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+        echo "PATH: $PATH"
+        
+        # Build APK
         buildozer android debug
-      env:
-        ANDROID_HOME: ${{ env.ANDROID_HOME }}
-        ANDROID_SDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v3

@@ -1,0 +1,79 @@
+name: Build APK (Docker Alternative)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - '**.py'
+      - 'buildozer.spec'
+      - 'requirements.txt'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build Docker image
+      run: |
+        docker build -t cashlytics-builder .
+
+    - name: Build APK with Docker
+      run: |
+        # Create bin directory
+        mkdir -p bin
+        
+        # Run Docker container to build APK
+        docker run --rm \
+          -v "${{ github.workspace }}:/app" \
+          -w /app \
+          cashlytics-builder \
+          bash -c "
+            export ANDROID_HOME=/opt/android-sdk
+            export ANDROID_SDK_ROOT=/opt/android-sdk
+            export PATH=\$PATH:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools
+            
+            # Debug: Check Android SDK setup
+            echo 'Checking Android SDK setup...'
+            ls -la /opt/android-sdk/
+            ls -la /opt/android-sdk/build-tools/
+            /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
+            
+            # Accept licenses again just in case
+            yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+            
+            # Build APK
+            buildozer android debug
+          "
+
+    - name: Check build output
+      run: |
+        echo "Checking for APK files..."
+        find . -name "*.apk" -type f
+        ls -la bin/ || echo "bin directory not found"
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: cashlytics-apk-docker
+        path: |
+          bin/*.apk
+          *.apk
+        retention-days: 30
+
+    - name: Upload buildozer logs
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: buildozer-logs-docker
+        path: |
+          .buildozer/android/platform/build-*/logs/
+          .buildozer/android/platform/python-for-android/
+        retention-days: 7
