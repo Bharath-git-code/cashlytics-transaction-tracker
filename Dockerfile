@@ -1,10 +1,10 @@
-# Dockerfile for building Kivy APK with proper Android SDK setup
+# Dockerfile for building Kivy APK - Simple and reliable
 FROM ubuntu:22.04
 
 # Prevent interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies
+# Install essential dependencies only
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -16,17 +16,11 @@ RUN apt-get update && apt-get install -y \
     wget \
     curl \
     build-essential \
-    ccache \
-    zlib1g-dev \
-    libncurses5:i386 \
-    libstdc++6:i386 \
-    zlib1g:i386 \
-    ant \
+    libffi-dev \
+    libssl-dev \
     autoconf \
     libtool \
     pkg-config \
-    libffi-dev \
-    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
@@ -43,9 +37,13 @@ RUN mkdir -p /opt/android-sdk/cmdline-tools && \
     mv cmdline-tools /opt/android-sdk/cmdline-tools/latest && \
     rm commandlinetools-linux-9477386_latest.zip
 
-# Accept licenses and install SDK components
+# Accept licenses and install minimal SDK components
 RUN yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses && \
-    $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2" "ndk;25.2.9519653"
+    $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+    "platform-tools" \
+    "platforms;android-33" \
+    "build-tools;33.0.2" \
+    "ndk;25.2.9519653"
 
 # Install Python dependencies
 RUN pip3 install --upgrade pip && \

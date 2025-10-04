@@ -25,20 +25,23 @@ jobs:
         sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
         sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
 
-    - name: Build APK using Kivy Buildozer Docker
+    - name: Build APK using Custom Docker Image
       run: |
+        # Build our custom Docker image first
+        docker build -t cashlytics-builder .
+        
+        # Run the build
         docker run --rm \
-          -v "${{ github.workspace }}:/home/user/hostcwd" \
-          -w /home/user/hostcwd \
-          -e USER=user \
-          kivy/buildozer:latest \
+          -v "${{ github.workspace }}:/app" \
+          -w /app \
+          cashlytics-builder \
           bash -c "
             set -e
             echo '🔍 Environment Check:'
             echo 'User: \$(whoami)'
             echo 'Working directory: \$(pwd)'
             echo 'Python version: \$(python3 --version)'
-            echo 'Buildozer version: \$(buildozer --version)'
+            echo 'Java version: \$(java -version 2>&1 | head -1)'
             echo ''
             
             echo '📋 Project files:'
@@ -49,17 +52,20 @@ jobs:
             cat buildozer.spec | head -20
             echo ''
             
-            echo '🔧 Starting buildozer init...'
-            buildozer init || echo 'Init completed or already done'
+            echo '🔧 Installing buildozer and cython...'
+            pip3 install buildozer cython
             
-            echo '🔍 Checking buildozer status...'
+            echo '🔍 Checking buildozer version...'
+            buildozer --version
+            
+            echo '� Starting buildozer build...'
             buildozer android debug --verbose 2>&1 | tee build.log
           " || {
             echo "Build failed, capturing logs..."
             docker run --rm \
-              -v "${{ github.workspace }}:/home/user/hostcwd" \
-              -w /home/user/hostcwd \
-              kivy/buildozer:latest \
+              -v "${{ github.workspace }}:/app" \
+              -w /app \
+              cashlytics-builder \
               bash -c "
                 echo 'Build directory contents:'
                 find . -name '*.log' -o -name '.buildozer' -type d | head -20
