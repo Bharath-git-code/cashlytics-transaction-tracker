@@ -1,0 +1,53 @@
+name: Build APK (Alternative)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: kivy/buildozer:latest
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Prepare build environment
+        run: |
+          # Update buildozer
+          pip install --upgrade buildozer
+          
+          # Show current directory and files
+          pwd
+          ls -la
+          
+          # Show buildozer.spec content
+          cat buildozer.spec
+          
+      - name: Build APK
+        run: |
+          # Build the APK
+          buildozer android debug --verbose
+          
+      - name: Find and upload APK
+        run: |
+          # Find APK file
+          find . -name "*.apk" -type f -exec ls -la {} \;
+          APK_FILE=$(find . -name "*.apk" -type f | head -1)
+          
+          if [ -n "$APK_FILE" ]; then
+            echo "Found APK: $APK_FILE"
+            mkdir -p /tmp/artifacts
+            cp "$APK_FILE" /tmp/artifacts/
+          else
+            echo "No APK file found!"
+            exit 1
+          fi
+          
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashlytics-apk-alternative
+          path: /tmp/artifacts/*.apk
+          if-no-files-found: error
