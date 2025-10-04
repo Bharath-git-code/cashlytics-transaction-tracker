@@ -74,18 +74,29 @@ jobs:
 
       - name: Install Android components
         run: |
-          # Accept licenses and install components
+          # Accept licenses and install components with explicit versions
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           
+          # Install specific versions that match our buildozer.spec
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
             "platforms;android-30" \
             "build-tools;30.0.3" \
             "ndk;23.2.8568313"
           
+          # Install older build-tools versions that buildozer might expect
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "build-tools;29.0.3" \
+            "build-tools;28.0.3"
+          
           # Verify installation
           echo "Installed Android components:"
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
+          
+          # Create symlinks to prevent buildozer from looking for newer versions
+          if [ -d "$ANDROID_HOME/build-tools/30.0.3" ]; then
+            ln -sf "$ANDROID_HOME/build-tools/30.0.3" "$ANDROID_HOME/build-tools/latest" || true
+          fi
 
       - name: Build APK
         run: |
@@ -138,11 +149,25 @@ jobs:
           cat buildozer.spec
           echo "=============================="
           
+          # Set explicit environment variables to override buildozer defaults
+          export ANDROID_HOME=$ANDROID_HOME
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export ANDROID_API_LEVEL=30
+          export ANDROID_BUILD_TOOLS_VERSION=30.0.3
+          export ANDROID_NDK_VERSION=23b
+          
           # Show environment
           echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "ANDROID_API_LEVEL: $ANDROID_API_LEVEL"
+          echo "ANDROID_BUILD_TOOLS_VERSION: $ANDROID_BUILD_TOOLS_VERSION"
           echo "PATH includes Android tools: $(echo $PATH | grep android || echo 'not found')"
           
-          # Build with maximum verbosity
+          # Check if build-tools exist
+          echo "Available build-tools:"
+          ls -la $ANDROID_HOME/build-tools/ || echo "No build-tools directory"
+          
+          # Build with maximum verbosity and force clean
+          buildozer android clean || true
           buildozer android debug --verbose
           
       - name: Find and upload APK
