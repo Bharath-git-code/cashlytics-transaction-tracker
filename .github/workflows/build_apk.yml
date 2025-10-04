@@ -15,48 +15,95 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build APK with Docker
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
         run: |
-          # Create a temporary Dockerfile for buildozer
-          cat > Dockerfile.buildozer << 'EOF'
-          FROM kivy/buildozer:latest
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            python3 \
+            python3-pip \
+            python3-venv \
+            openjdk-17-jdk \
+            unzip \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libtinfo5 \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            automake \
+            autoconf \
+            libtool \
+            pkg-config
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 30
+          build-tools-version: 30.0.3
+          ndk-version: 23.2.8568313
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade buildozer cython
+
+      - name: Accept Android licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+
+      - name: Cache Buildozer directories
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+
+      - name: Prepare buildozer.spec
+        run: |
+          # Show current buildozer.spec
+          echo "=== Current buildozer.spec ==="
+          cat buildozer.spec
+          echo "=============================="
+
+      - name: Build APK
+        run: |
+          # Set environment variables
+          export ANDROID_HOME=$ANDROID_HOME
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
           
-          # Set working directory
-          WORKDIR /app
-          
-          # Copy project files
-          COPY . .
-          
-          # Update buildozer and accept licenses
-          RUN buildozer android debug || echo "Build completed with warnings"
-          EOF
-          
-          # Build Docker image
-          docker build -f Dockerfile.buildozer -t cashlytics-builder .
-          
-          # Run container to build APK
-          docker run --rm -v "$(pwd):/output" cashlytics-builder sh -c "
-            cp -r /app/bin /output/ 2>/dev/null || echo 'No bin directory to copy'
-            cp -r /app/.buildozer /output/ 2>/dev/null || echo 'No .buildozer directory to copy'
-            find /app -name '*.apk' -exec cp {} /output/ \; 2>/dev/null || echo 'No APK files found'
-            ls -la /output/
-          "
+          # Build with verbose output
+          buildozer android debug --verbose
 
       - name: Find APK file
         id: find-apk
         run: |
           echo "Looking for APK files..."
-          ls -la
+          find . -name "*.apk" -type f -exec ls -la {} \; || echo "No APK files found"
+          
           APK_FILE=$(find . -name "*.apk" -type f | head -1)
           if [ -z "$APK_FILE" ]; then
-            echo "No APK found, checking bin directory..."
+            echo "Checking bin directory..."
             ls -la bin/ || echo "No bin directory"
             APK_FILE=$(find bin/ -name "*.apk" -type f 2>/dev/null | head -1)
           fi
+          
           if [ -z "$APK_FILE" ]; then
             echo "ERROR: No APK file found!"
+            echo "Directory contents:"
+            ls -la
             exit 1
           fi
+          
           echo "apk-file=$APK_FILE" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_FILE"
 
