@@ -1,0 +1,130 @@
+name: Build APK (Manual License Fix)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Java 11  
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git unzip
+        python -m pip install --upgrade pip
+        pip install cython==0.29.36
+        pip install buildozer
+
+    - name: Prepare buildozer.spec
+      run: |
+        cp buildozer.spec buildozer.spec.backup
+        sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
+        sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
+
+    - name: Try initial build to trigger SDK download
+      continue-on-error: true
+      run: |
+        echo "🔧 Triggering Android SDK download..."
+        timeout 300 buildozer android debug -v 2>&1 | tee initial_build.log || echo "Initial build timed out or failed as expected"
+
+    - name: Find and accept Android SDK licenses
+      run: |
+        echo "🔍 Looking for Android SDK..."
+        
+        # Find buildozer's Android SDK
+        SDK_DIRS=(
+          "$HOME/.buildozer/android/platform/android-sdk"
+          "$HOME/.buildozer/android/platform/android-sdk-*"
+          "./.buildozer/android/platform/android-sdk"
+          "./.buildozer/android/platform/android-sdk-*"
+        )
+        
+        for pattern in "${SDK_DIRS[@]}"; do
+          for sdk_path in $pattern; do
+            if [ -d "$sdk_path" ]; then
+              echo "✅ Found Android SDK at: $sdk_path"
+              export ANDROID_HOME="$sdk_path"
+              export ANDROID_SDK_ROOT="$sdk_path"
+              
+              # Try to find sdkmanager
+              SDKMANAGERS=(
+                "$sdk_path/cmdline-tools/latest/bin/sdkmanager"
+                "$sdk_path/tools/bin/sdkmanager"
+                "$sdk_path/cmdline-tools/*/bin/sdkmanager"
+              )
+              
+              for sdkmanager_pattern in "${SDKMANAGERS[@]}"; do
+                for sdkmanager in $sdkmanager_pattern; do
+                  if [ -f "$sdkmanager" ]; then
+                    echo "🔧 Found sdkmanager: $sdkmanager"
+                    echo "📜 Accepting all licenses..."
+                    yes | "$sdkmanager" --licenses 2>/dev/null || true
+                    
+                    echo "📦 Installing required build tools..."
+                    "$sdkmanager" "build-tools;33.0.2" 2>/dev/null || true
+                    
+                    break 2
+                  fi
+                done
+              done
+              break 2
+            fi
+          done
+        done
+
+    - name: Build APK after license acceptance
+      run: |
+        echo "🚀 Building APK after license acceptance..."
+        buildozer android debug -v 2>&1 | tee final_build.log
+
+    - name: Check results
+      run: |
+        echo "📱 Checking for APK:"
+        find . -name "*.apk" -type f
+        if [ -d bin ]; then
+          ls -la bin/
+        fi
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cashlytics-apk-manual-license
+        path: |
+          bin/*.apk
+          *.apk
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload all logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: manual-license-logs
+        path: |
+          *.log
+          .buildozer/**/*.log
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Restore buildozer.spec
+      if: always()
+      run: |
+        if [ -f buildozer.spec.backup ]; then
+          mv buildozer.spec.backup buildozer.spec
+        fi
