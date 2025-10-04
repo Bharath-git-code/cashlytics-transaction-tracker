@@ -62,20 +62,43 @@ The app uses SQLite with three main tables:
 
 ## Building for Android
 
-To build for Android, you can use:
+This project includes automated GitHub Actions workflows for building Android APKs:
 
-1. **Buildozer** (recommended):
+### 🚀 Quick Build (Recommended)
 
-   ```bash
-   pip install buildozer
-   buildozer android debug
-   ```
+1. **Push changes to GitHub**
+2. **Go to Actions tab** in your repository
+3. **Run "Build APK (Minimal Working)"** workflow
+4. **Download APK** from artifacts
 
-2. **Python-for-Android (p4a)**:
-   ```bash
-   pip install python-for-android
-   p4a apk --private . --package=com.example.transactiontracker --name="Transaction Tracker" --version=0.1 --bootstrap=sdl2 --requirements=python3,kivy,kivymd
-   ```
+### Available Workflows
+
+- **build-apk-minimal.yml**: Fast, essential-only build
+- **build-apk-complete.yml**: Comprehensive build with all tools
+- **build-apk-recommended.yml**: Balanced approach (recommended)
+
+### Manual Build (Local)
+
+If you want to build locally:
+
+```bash
+# Install buildozer
+pip install buildozer cython
+
+# Build debug APK
+buildozer android debug
+```
+
+**Note**: Local builds require Android SDK setup and can be complex. GitHub Actions is recommended for hassle-free APK generation.
+
+### Build Status
+
+✅ **App Development**: Complete  
+✅ **Build Environment**: Ready  
+✅ **License Handling**: Automated  
+🔄 **APK Generation**: In Progress  
+
+See `BUILD_APK.md` for detailed build documentation and troubleshooting.
 
 ## Contributing
 
