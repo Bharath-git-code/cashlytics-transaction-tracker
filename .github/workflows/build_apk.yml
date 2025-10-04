@@ -18,7 +18,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install system dependencies
         run: |
@@ -75,7 +75,7 @@ jobs:
           echo "=== All files in directory ==="
           ls -la
           echo "=============================="
-          
+
           # Check if buildozer.spec exists
           if [ -f "buildozer.spec" ]; then
             echo "=== Current buildozer.spec ==="
@@ -131,7 +131,7 @@ jobs:
           export ANDROID_HOME=$ANDROID_HOME
           export ANDROID_SDK_ROOT=$ANDROID_HOME
           export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
-          
+
           # Build with verbose output
           buildozer android debug --verbose
 
@@ -140,21 +140,21 @@ jobs:
         run: |
           echo "Looking for APK files..."
           find . -name "*.apk" -type f -exec ls -la {} \; || echo "No APK files found"
-          
+
           APK_FILE=$(find . -name "*.apk" -type f | head -1)
           if [ -z "$APK_FILE" ]; then
             echo "Checking bin directory..."
             ls -la bin/ || echo "No bin directory"
             APK_FILE=$(find bin/ -name "*.apk" -type f 2>/dev/null | head -1)
           fi
-          
+
           if [ -z "$APK_FILE" ]; then
             echo "ERROR: No APK file found!"
             echo "Directory contents:"
             ls -la
             exit 1
           fi
-          
+
           echo "apk-file=$APK_FILE" >> $GITHUB_OUTPUT
           echo "Found APK: $APK_FILE"
 
