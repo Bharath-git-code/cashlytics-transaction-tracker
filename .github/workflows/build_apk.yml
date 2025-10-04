@@ -69,10 +69,64 @@ jobs:
 
       - name: Prepare buildozer.spec
         run: |
-          # Show current buildozer.spec
-          echo "=== Current buildozer.spec ==="
-          cat buildozer.spec
+          # Show current directory and all files
+          echo "=== Current working directory ==="
+          pwd
+          echo "=== All files in directory ==="
+          ls -la
           echo "=============================="
+          
+          # Check if buildozer.spec exists
+          if [ -f "buildozer.spec" ]; then
+            echo "=== Current buildozer.spec ==="
+            cat buildozer.spec
+            echo "=============================="
+          else
+            echo "ERROR: buildozer.spec not found!"
+            echo "Available files:"
+            find . -name "*.spec" -o -name "buildozer*" -o -name "*.py" | head -10
+            
+            # Try to create buildozer.spec if buildozer.spec.bak exists
+            if [ -f "buildozer.spec.bak" ]; then
+              echo "Found buildozer.spec.bak, copying to buildozer.spec"
+              cp buildozer.spec.bak buildozer.spec
+              cat buildozer.spec
+            else
+              echo "Creating minimal buildozer.spec"
+              buildozer init
+              # Replace with our configuration
+              cat > buildozer.spec << 'EOF'
+[app]
+title = Cashlytics
+package.name = cashlytics
+package.domain = org.personal.cashlytics
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,txt,db
+source.include_patterns = assets/*,screens/*
+version = 0.1
+requirements = python3,kivy,kivymd,sqlite3,pillow
+orientation = portrait
+fullscreen = 0
+
+[buildozer]
+log_level = 2
+warn_on_root = 0
+
+# Android specific
+android.archs = arm64-v8a
+android.api = 30
+android.minapi = 21
+android.ndk = 23b
+android.sdk = 30
+android.build_tools = 30.0.3
+android.entrypoint = org.kivy.android.PythonActivity
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+icon.filename = assets/icons/logo.png
+EOF
+              echo "Created buildozer.spec:"
+              cat buildozer.spec
+            fi
+          fi
 
       - name: Build APK
         run: |

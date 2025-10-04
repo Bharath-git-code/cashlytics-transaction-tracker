@@ -25,6 +25,9 @@ MANIFEST
 
 # PyInstaller
 *.manifest
+# Note: buildozer.spec is needed for APK building, so exclude from *.spec ignore
+!buildozer.spec
+!buildozer_simple.spec
 *.spec
 
 # Buildozer files
