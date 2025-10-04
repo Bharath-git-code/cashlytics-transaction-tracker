@@ -1,0 +1,157 @@
+name: Build APK (Final Fix)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Java 11  
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git \
+          unzip \
+          build-essential \
+          libssl-dev \
+          libffi-dev \
+          python3-dev
+
+    - name: Install Python build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install cython==0.29.36
+        pip install buildozer
+
+    - name: Verify project setup
+      run: |
+        echo "✅ Project verification:"
+        echo "Main.py exists: $([ -f main.py ] && echo 'Yes' || echo 'No')"
+        echo "Requirements.txt exists: $([ -f requirements.txt ] && echo 'Yes' || echo 'No')"
+        
+        if [ -f main.py ]; then
+          echo "Testing main.py syntax:"
+          python -m py_compile main.py && echo "✅ Syntax OK" || echo "❌ Syntax error"
+        fi
+
+    - name: Clean buildozer.spec for reliable build
+      run: |
+        cp buildozer.spec buildozer.spec.backup
+        
+        # Ensure clean paths - let buildozer handle everything
+        sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
+        sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
+        
+        echo "📄 Clean buildozer.spec ready"
+
+    - name: Build APK with comprehensive logging
+      run: |
+        echo "🚀 Starting comprehensive APK build..."
+        
+        # Set buildozer environment for detailed logging
+        export BUILDOZER_LOG_LEVEL=2
+        export PYTHONUNBUFFERED=1
+        
+        # Build with all output captured
+        buildozer android debug -v 2>&1 | tee comprehensive_build.log
+        
+        echo "Build command completed with exit code: $?"
+
+    - name: Comprehensive result analysis
+      run: |
+        echo "🔍 Comprehensive APK search:"
+        
+        # Search everywhere for APK files
+        echo "=== Searching entire workspace ==="
+        find . -name "*.apk" -type f 2>/dev/null | while read apk; do
+          echo "📱 Found APK: $apk"
+          ls -lh "$apk"
+        done || echo "No APK files found in workspace"
+        
+        echo ""
+        echo "=== Checking specific directories ==="
+        for dir in bin .buildozer/android/platform/build-*; do
+          if [ -d "$dir" ]; then
+            echo "Checking $dir:"
+            find "$dir" -name "*.apk" -type f 2>/dev/null || echo "  No APK files"
+          fi
+        done
+        
+        echo ""
+        echo "=== Build log analysis ==="
+        if [ -f comprehensive_build.log ]; then
+          echo "Log file size: $(wc -l < comprehensive_build.log) lines"
+          
+          echo ""
+          echo "Checking for success indicators:"
+          grep -i "BUILD SUCCESSFUL\|APK.*created\|BUILD.*COMPLETE" comprehensive_build.log || echo "No clear success indicators"
+          
+          echo ""
+          echo "Checking for errors:"
+          grep -i "BUILD FAILED\|ERROR\|FAILED\|Exception" comprehensive_build.log | tail -5 || echo "No obvious errors"
+          
+          echo ""
+          echo "Last 30 lines of build log:"
+          tail -30 comprehensive_build.log
+        else
+          echo "No build log found"
+        fi
+
+    - name: Create bin directory and copy any APKs
+      run: |
+        mkdir -p bin
+        
+        # Find and copy any APK files to bin directory
+        find . -name "*.apk" -type f ! -path "./bin/*" | while read apk; do
+          echo "📦 Copying APK to bin/: $apk"
+          cp "$apk" bin/
+        done
+        
+        echo "📂 Final bin directory contents:"
+        ls -la bin/ || echo "bin directory empty"
+
+    - name: Upload APK (if found)
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cashlytics-apk-final
+        path: |
+          bin/*.apk
+          ./**/*.apk
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload comprehensive build logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: comprehensive-build-logs
+        path: |
+          comprehensive_build.log
+          .buildozer/**/*.log
+          buildozer.spec.backup
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Restore buildozer.spec
+      if: always()
+      run: |
+        if [ -f buildozer.spec.backup ]; then
+          mv buildozer.spec.backup buildozer.spec
+        fi
