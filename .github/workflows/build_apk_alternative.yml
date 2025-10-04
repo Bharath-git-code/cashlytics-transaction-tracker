@@ -104,34 +104,32 @@ jobs:
             if [ -f "buildozer.spec.bak" ]; then
               cp buildozer.spec.bak buildozer.spec
             else
-              # Create a working buildozer.spec
-              cat > buildozer.spec << EOF
-[app]
-title = Cashlytics
-package.name = cashlytics
-package.domain = org.personal.cashlytics
-source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,txt,db
-source.include_patterns = assets/*,screens/*
-version = 0.1
-requirements = python3,kivy,kivymd,sqlite3,pillow
-orientation = portrait
-fullscreen = 0
-
-[buildozer]
-log_level = 2
-warn_on_root = 0
-
-android.archs = arm64-v8a
-android.api = 30
-android.minapi = 21
-android.ndk = 23b
-android.sdk = 30
-android.build_tools = 30.0.3
-android.entrypoint = org.kivy.android.PythonActivity
-android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
-icon.filename = assets/icons/logo.png
-EOF
+              # Create a working buildozer.spec using echo
+              echo "[app]" > buildozer.spec
+              echo "title = Cashlytics" >> buildozer.spec
+              echo "package.name = cashlytics" >> buildozer.spec
+              echo "package.domain = org.personal.cashlytics" >> buildozer.spec
+              echo "source.dir = ." >> buildozer.spec
+              echo "source.include_exts = py,png,jpg,kv,atlas,txt,db" >> buildozer.spec
+              echo "source.include_patterns = assets/*,screens/*" >> buildozer.spec
+              echo "version = 0.1" >> buildozer.spec
+              echo "requirements = python3,kivy,kivymd,sqlite3,pillow" >> buildozer.spec
+              echo "orientation = portrait" >> buildozer.spec
+              echo "fullscreen = 0" >> buildozer.spec
+              echo "" >> buildozer.spec
+              echo "[buildozer]" >> buildozer.spec
+              echo "log_level = 2" >> buildozer.spec
+              echo "warn_on_root = 0" >> buildozer.spec
+              echo "" >> buildozer.spec
+              echo "android.archs = arm64-v8a" >> buildozer.spec
+              echo "android.api = 30" >> buildozer.spec
+              echo "android.minapi = 21" >> buildozer.spec
+              echo "android.ndk = 23b" >> buildozer.spec
+              echo "android.sdk = 30" >> buildozer.spec
+              echo "android.build_tools = 30.0.3" >> buildozer.spec
+              echo "android.entrypoint = org.kivy.android.PythonActivity" >> buildozer.spec
+              echo "android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE" >> buildozer.spec
+              echo "icon.filename = assets/icons/logo.png" >> buildozer.spec
             fi
           fi
           
