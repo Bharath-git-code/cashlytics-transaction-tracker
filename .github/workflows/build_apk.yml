@@ -65,15 +65,22 @@ jobs:
           
           # Verify buildozer.spec exists
           if [ ! -f "buildozer.spec" ]; then
-            echo "ERROR: buildozer.spec not found!"
-            exit 1
+            echo "ERROR: buildozer.spec not found in current directory!"
+            echo "Creating a minimal buildozer.spec..."
+            buildozer init
+            # Copy our spec content
+            if [ -f "buildozer.spec.bak" ]; then
+              cp buildozer.spec.bak buildozer.spec
+            fi
           fi
+          
+          # Show buildozer.spec content (first 20 lines)
+          echo "=== buildozer.spec content ==="
+          head -20 buildozer.spec
+          echo "=============================="
           
           # Accept Android SDK licenses
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # Initialize buildozer if needed
-          buildozer init || true
           
           # Build the APK
           buildozer android debug
