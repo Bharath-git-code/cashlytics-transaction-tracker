@@ -1,0 +1,90 @@
+name: Build APK (Simple Docker)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - '**.py'
+      - 'buildozer.spec'
+      - 'requirements.txt'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Create buildozer spec for GitHub Actions
+      run: |
+        # Create a version of buildozer.spec that doesn't specify SDK paths
+        # This lets buildozer download and manage its own SDK
+        cp buildozer.spec buildozer.spec.bak
+        sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
+        sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
+
+    - name: Build APK using Kivy Buildozer Docker
+      run: |
+        docker run --rm \
+          -v "${{ github.workspace }}:/home/user/hostcwd" \
+          -w /home/user/hostcwd \
+          -e USER=user \
+          kivy/buildozer:latest \
+          bash -c "
+            # Accept Android SDK licenses
+            yes | buildozer android debug 2>&1 | tee build.log || {
+              echo 'Build failed, checking for license issues...'
+              if [[ -d ~/.buildozer/android/platform/android-sdk ]]; then
+                export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
+                export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
+                yes | \$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+                yes | \$ANDROID_HOME/tools/bin/sdkmanager --licenses || true
+                echo 'Retrying build after license acceptance...'
+                buildozer android debug
+              else
+                echo 'Android SDK not found, build failed'
+                exit 1
+              fi
+            }
+          "
+
+    - name: Check build output
+      run: |
+        echo "Checking for APK files..."
+        find . -name "*.apk" -type f
+        ls -la bin/ || echo "bin directory not found"
+        
+        # Check build log for errors
+        if [ -f build.log ]; then
+          echo "Build log content:"
+          tail -50 build.log
+        fi
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cashlytics-apk-simple
+        path: |
+          bin/*.apk
+          *.apk
+        retention-days: 30
+
+    - name: Upload build logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: build-logs-simple
+        path: |
+          build.log
+          .buildozer/android/platform/build-*/logs/
+        retention-days: 7
+
+    - name: Restore original buildozer.spec
+      if: always()
+      run: |
+        if [ -f buildozer.spec.bak ]; then
+          mv buildozer.spec.bak buildozer.spec
+        fi

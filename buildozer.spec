@@ -57,10 +57,10 @@ android.sdk = 33
 android.build_tools = 33.0.2
 
 # (str) Android SDK directory (if not using default)
-# android.sdk_path = /opt/android-sdk
+android.sdk_path = /opt/android-sdk
 
 # (str) Android NDK directory (if not using default)  
-# android.ndk_path = /opt/android-sdk/ndk/25.2.9519653
+android.ndk_path = /opt/android-sdk/ndk/25.2.9519653
 
 # (str) Android entry point, default is ok for Kivy-based app
 android.entrypoint = org.kivy.android.PythonActivity

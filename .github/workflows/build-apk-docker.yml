@@ -48,8 +48,15 @@ jobs:
             # Accept licenses again just in case
             yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
             
-            # Build APK
-            buildozer android debug
+            # Clean any previous builds
+            buildozer android clean || true
+            
+            # Force buildozer to use system Android SDK
+            mkdir -p ~/.buildozer/android/platform
+            ln -sf /opt/android-sdk ~/.buildozer/android/platform/android-sdk
+            
+            # Build APK with verbose output
+            buildozer -v android debug
           "
 
     - name: Check build output
@@ -59,7 +66,7 @@ jobs:
         ls -la bin/ || echo "bin directory not found"
 
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: cashlytics-apk-docker
@@ -69,7 +76,7 @@ jobs:
         retention-days: 30
 
     - name: Upload buildozer logs
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: buildozer-logs-docker
