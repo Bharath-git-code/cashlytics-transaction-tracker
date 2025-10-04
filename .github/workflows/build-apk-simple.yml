@@ -33,22 +33,48 @@ jobs:
           -e USER=user \
           kivy/buildozer:latest \
           bash -c "
-            # Accept Android SDK licenses
-            yes | buildozer android debug 2>&1 | tee build.log || {
-              echo 'Build failed, checking for license issues...'
-              if [[ -d ~/.buildozer/android/platform/android-sdk ]]; then
-                export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
-                export ANDROID_SDK_ROOT=~/.buildozer/android/platform/android-sdk
-                yes | \$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-                yes | \$ANDROID_HOME/tools/bin/sdkmanager --licenses || true
-                echo 'Retrying build after license acceptance...'
-                buildozer android debug
-              else
-                echo 'Android SDK not found, build failed'
-                exit 1
-              fi
-            }
-          "
+            set -e
+            echo '🔍 Environment Check:'
+            echo 'User: \$(whoami)'
+            echo 'Working directory: \$(pwd)'
+            echo 'Python version: \$(python3 --version)'
+            echo 'Buildozer version: \$(buildozer --version)'
+            echo ''
+            
+            echo '📋 Project files:'
+            ls -la
+            echo ''
+            
+            echo '📄 Buildozer spec content:'
+            cat buildozer.spec | head -20
+            echo ''
+            
+            echo '🔧 Starting buildozer init...'
+            buildozer init || echo 'Init completed or already done'
+            
+            echo '🔍 Checking buildozer status...'
+            buildozer android debug --verbose 2>&1 | tee build.log
+          " || {
+            echo "Build failed, capturing logs..."
+            docker run --rm \
+              -v "${{ github.workspace }}:/home/user/hostcwd" \
+              -w /home/user/hostcwd \
+              kivy/buildozer:latest \
+              bash -c "
+                echo 'Build directory contents:'
+                find . -name '*.log' -o -name '.buildozer' -type d | head -20
+                
+                if [ -d .buildozer ]; then
+                  echo 'Buildozer directory structure:'
+                  find .buildozer -type f -name '*.log' | head -10
+                  find .buildozer -type f -name '*.txt' | head -10
+                fi
+                
+                echo 'Last 50 lines of any log files found:'
+                find . -name '*.log' -exec echo 'File: {}' \; -exec tail -50 {} \; 2>/dev/null || true
+              "
+            exit 1
+          }
 
     - name: Check build output
       run: |
@@ -56,10 +82,19 @@ jobs:
         find . -name "*.apk" -type f
         ls -la bin/ || echo "bin directory not found"
         
+        # Check for any buildozer directories and logs
+        if [ -d .buildozer ]; then
+          echo "Buildozer directory found:"
+          find .buildozer -type f -name "*.log" | head -10
+          find .buildozer -type f -name "*.txt" | head -10
+        fi
+        
         # Check build log for errors
         if [ -f build.log ]; then
-          echo "Build log content:"
-          tail -50 build.log
+          echo "Build log exists, showing last 100 lines:"
+          tail -100 build.log
+        else
+          echo "No build.log found"
         fi
 
     - name: Upload APK artifact
@@ -71,6 +106,7 @@ jobs:
           bin/*.apk
           *.apk
         retention-days: 30
+        if-no-files-found: warn
 
     - name: Upload build logs
       uses: actions/upload-artifact@v4
@@ -79,8 +115,11 @@ jobs:
         name: build-logs-simple
         path: |
           build.log
+          .buildozer/**/*.log
+          .buildozer/**/*.txt
           .buildozer/android/platform/build-*/logs/
         retention-days: 7
+        if-no-files-found: warn
 
     - name: Restore original buildozer.spec
       if: always()

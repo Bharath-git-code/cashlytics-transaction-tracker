@@ -1,0 +1,79 @@
+name: Debug Build Environment
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Test project structure
+      run: |
+        echo "📁 Project structure:"
+        ls -la
+        echo ""
+        
+        echo "📄 Checking buildozer.spec:"
+        if [ -f buildozer.spec ]; then
+          echo "✅ buildozer.spec found"
+          echo "📋 Key settings:"
+          grep -E "^(title|package\.name|requirements|android\.api|android\.build_tools)" buildozer.spec
+        else
+          echo "❌ buildozer.spec not found"
+        fi
+        echo ""
+        
+        echo "🐍 Checking Python files:"
+        find . -name "*.py" | head -10
+        echo ""
+        
+        echo "📦 Checking requirements:"
+        if [ -f requirements.txt ]; then
+          echo "✅ requirements.txt found:"
+          cat requirements.txt
+        else
+          echo "❌ requirements.txt not found"
+        fi
+
+    - name: Test Docker availability
+      run: |
+        echo "🐳 Testing Docker:"
+        docker --version
+        docker run --rm hello-world
+
+    - name: Test Kivy Buildozer Docker image
+      run: |
+        echo "🧪 Testing Kivy Buildozer Docker image:"
+        docker run --rm kivy/buildozer:latest bash -c "
+          echo 'Docker environment:'
+          whoami
+          pwd
+          python3 --version
+          buildozer --version
+          echo 'Available tools:'
+          which java || echo 'Java not found'
+          which python3 || echo 'Python3 not found'
+          which buildozer || echo 'Buildozer not found'
+        "
+
+    - name: Test minimal buildozer command
+      run: |
+        echo "🔧 Testing buildozer init in Docker:"
+        docker run --rm \
+          -v "${{ github.workspace }}:/home/user/hostcwd" \
+          -w /home/user/hostcwd \
+          kivy/buildozer:latest \
+          bash -c "
+            echo 'Working directory contents:'
+            ls -la
+            echo ''
+            echo 'Testing buildozer init:'
+            buildozer init || echo 'Init failed or already done'
+            echo ''
+            echo 'Testing buildozer android list:'
+            buildozer android list || echo 'List command failed'
+          "

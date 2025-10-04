@@ -1,0 +1,135 @@
+name: Build APK (Basic)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          openjdk-8-jdk \
+          unzip \
+          zip \
+          git \
+          build-essential \
+          python3-dev \
+          libffi-dev \
+          libssl-dev
+
+    - name: Set JAVA_HOME
+      run: |
+        echo "JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" >> $GITHUB_ENV
+        echo "/usr/lib/jvm/java-8-openjdk-amd64/bin" >> $GITHUB_PATH
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install cython
+        pip install buildozer
+
+    - name: Fix buildozer.spec for GitHub Actions
+      run: |
+        # Comment out specific SDK paths to let buildozer auto-download
+        sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
+        sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
+        
+        echo "📄 Modified buildozer.spec:"
+        grep -E "(android\.sdk_path|android\.ndk_path)" buildozer.spec || echo "Paths commented out"
+
+    - name: Initialize buildozer
+      run: |
+        buildozer init || echo "Already initialized"
+        buildozer android list
+
+    - name: Build APK (first attempt)
+      continue-on-error: true
+      run: |
+        echo "🚀 Starting first build attempt..."
+        buildozer android debug 2>&1 | tee build_attempt1.log
+        echo "Exit code: $?"
+
+    - name: Accept licenses and retry if needed
+      run: |
+        if [ ! -f bin/*.apk ]; then
+          echo "🔧 First build failed, trying license acceptance..."
+          
+          # Find buildozer's Android SDK
+          sdk_path=$(find ~/.buildozer -name "android-sdk" -type d 2>/dev/null | head -1)
+          
+          if [ -n "$sdk_path" ]; then
+            echo "Found SDK at: $sdk_path"
+            export ANDROID_HOME="$sdk_path"
+            export ANDROID_SDK_ROOT="$sdk_path"
+            
+            # Try different sdkmanager locations
+            for sdkmanager in "$sdk_path/cmdline-tools/latest/bin/sdkmanager" "$sdk_path/tools/bin/sdkmanager"; do
+              if [ -f "$sdkmanager" ]; then
+                echo "Using sdkmanager: $sdkmanager"
+                yes | "$sdkmanager" --licenses || true
+                break
+              fi
+            done
+            
+            echo "🚀 Retrying build after license acceptance..."
+            buildozer android debug 2>&1 | tee build_attempt2.log
+          else
+            echo "❌ Android SDK not found in buildozer cache"
+          fi
+        else
+          echo "✅ Build succeeded on first attempt"
+        fi
+
+    - name: Check results
+      run: |
+        echo "📱 Checking for APK files:"
+        find . -name "*.apk" -type f
+        
+        if [ -d bin ]; then
+          echo "📂 bin directory contents:"
+          ls -la bin/
+        fi
+        
+        echo "📋 Build logs summary:"
+        for log in build_attempt*.log; do
+          if [ -f "$log" ]; then
+            echo "=== $log (last 20 lines) ==="
+            tail -20 "$log"
+            echo ""
+          fi
+        done
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cashlytics-apk-basic
+        path: |
+          bin/*.apk
+          *.apk
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload all logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: all-build-logs
+        path: |
+          build_attempt*.log
+          .buildozer/**/*.log
+          .buildozer/**/*.txt
+        retention-days: 7
+        if-no-files-found: warn
