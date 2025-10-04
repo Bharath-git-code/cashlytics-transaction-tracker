@@ -65,13 +65,37 @@ jobs:
 
     - name: Prepare buildozer.spec for GitHub Actions
       run: |
-        # Comment out specific SDK paths to let buildozer auto-download
+        # Comment out specific SDK paths to let buildozer auto-download with correct Java version
         cp buildozer.spec buildozer.spec.backup
         sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
         sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
         
         echo "📄 Modified buildozer.spec Android settings:"
         grep -E "(android\.api|android\.build_tools|android\.ndk|android\.sdk_path|android\.ndk_path)" buildozer.spec
+
+    - name: Clean any previous buildozer cache
+      run: |
+        # Remove any cached Android SDK that might have Java 8 compatibility issues
+        rm -rf ~/.buildozer/android/platform/android-sdk* || true
+        rm -rf .buildozer/android/platform/android-sdk* || true
+        echo "Cleaned buildozer Android SDK cache"
+
+    # Skip buildozer caching to force fresh Android SDK download with Java 11 compatibility
+    # - name: Cache Buildozer global directory
+    #   uses: actions/cache@v3
+    #   with:
+    #     path: ~/.buildozer
+    #     key: buildozer-${{ hashFiles('buildozer.spec') }}
+    #     restore-keys: |
+    #       buildozer-
+
+    # - name: Cache Buildozer dependencies  
+    #   uses: actions/cache@v3
+    #   with:
+    #     path: .buildozer
+    #     key: buildozer-deps-${{ hashFiles('buildozer.spec') }}-${{ hashFiles('requirements.txt') }}
+    #     restore-keys: |
+    #       buildozer-deps-
 
     - name: Initialize buildozer
       run: |
@@ -81,51 +105,12 @@ jobs:
         echo "📋 Available buildozer targets:"
         buildozer android list || echo "List command completed"
 
-    - name: Build APK with license handling
+    - name: Build APK with automatic SDK download
       run: |
-        echo "🚀 Starting APK build..."
+        echo "🚀 Starting APK build (buildozer will download Android SDK with Java 11 compatibility)..."
         
-        # First attempt
-        if ! buildozer android debug 2>&1 | tee build.log; then
-          echo "⚠️ First build attempt failed, checking for license issues..."
-          
-          # Find buildozer's Android SDK
-          sdk_paths=(
-            "$HOME/.buildozer/android/platform/android-sdk"
-            "$HOME/.buildozer/android/platform/android-sdk-*"
-          )
-          
-          for sdk_pattern in "${sdk_paths[@]}"; do
-            for sdk_path in $sdk_pattern; do
-              if [ -d "$sdk_path" ]; then
-                echo "✅ Found Android SDK at: $sdk_path"
-                export ANDROID_HOME="$sdk_path"
-                export ANDROID_SDK_ROOT="$sdk_path"
-                
-                # Try different sdkmanager locations and accept licenses
-                sdkmanagers=(
-                  "$sdk_path/cmdline-tools/latest/bin/sdkmanager"
-                  "$sdk_path/tools/bin/sdkmanager"
-                  "$sdk_path/cmdline-tools/tools/bin/sdkmanager"
-                )
-                
-                for sdkmanager in "${sdkmanagers[@]}"; do
-                  if [ -f "$sdkmanager" ]; then
-                    echo "🔧 Using sdkmanager: $sdkmanager"
-                    yes | "$sdkmanager" --licenses 2>/dev/null || true
-                    yes | "$sdkmanager" --update 2>/dev/null || true
-                    break
-                  fi
-                done
-                
-                # Retry build
-                echo "🔄 Retrying build after license acceptance..."
-                buildozer android debug 2>&1 | tee build_retry.log && break
-                
-              fi
-            done
-          done
-        fi
+        # Let buildozer handle everything - it will download the correct Android SDK for Java 11
+        buildozer android debug 2>&1 | tee build.log
 
     - name: Check build results
       run: |

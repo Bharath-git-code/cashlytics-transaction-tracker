@@ -1,0 +1,104 @@
+name: Build APK (Fresh Start)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up Java 11  
+      uses: actions/setup-java@v3
+      with:
+        distribution: 'temurin'
+        java-version: '11'
+
+    - name: Install minimal dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git unzip
+
+    - name: Install Python build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install cython==0.29.36
+        pip install buildozer
+
+    - name: Verify environment
+      run: |
+        echo "✅ Environment verification:"
+        echo "Python: $(python --version)"
+        echo "Java: $(java -version 2>&1 | head -1)"
+        echo "JAVA_HOME: $JAVA_HOME"
+        echo "Buildozer: $(buildozer --version)"
+
+    - name: Prepare clean buildozer.spec
+      run: |
+        # Make a backup and clean the spec for fresh build
+        cp buildozer.spec buildozer.spec.original
+        
+        # Remove any hardcoded paths to let buildozer auto-detect everything
+        sed -i 's/^android\.sdk_path/#android.sdk_path/' buildozer.spec
+        sed -i 's/^android\.ndk_path/#android.ndk_path/' buildozer.spec
+        
+        echo "📄 Cleaned buildozer.spec (will auto-download Android SDK with Java 11):"
+        echo "Android settings:"
+        grep -E "android\.(api|build_tools|ndk)" buildozer.spec
+
+    - name: Build APK (fresh start, no cache)
+      run: |
+        echo "🚀 Building APK with fresh Android SDK download..."
+        echo "📥 Buildozer will automatically download Android SDK compatible with Java 11"
+        
+        # Build with verbose output
+        buildozer android debug -v 2>&1 | tee build_fresh.log
+
+    - name: Check build results
+      run: |
+        echo "📱 Checking for APK:"
+        find . -name "*.apk" -type f || echo "No APK found"
+        
+        if [ -d bin ]; then
+          echo "📂 bin directory:"
+          ls -la bin/
+        fi
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: cashlytics-apk-fresh
+        path: |
+          bin/*.apk
+          *.apk
+        retention-days: 30
+        if-no-files-found: warn
+
+    - name: Upload complete logs
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: complete-logs-fresh
+        path: |
+          build_fresh.log
+          buildozer.spec.original
+          .buildozer/**/*.log
+        retention-days: 7
+        if-no-files-found: warn
+
+    - name: Restore buildozer.spec
+      if: always()
+      run: |
+        if [ -f buildozer.spec.original ]; then
+          mv buildozer.spec.original buildozer.spec
+          echo "✅ Restored original buildozer.spec"
+        fi
