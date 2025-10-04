@@ -1,0 +1,57 @@
+# 🚀 EASIEST METHOD: Copy-Paste APK Builder
+# 
+# Instructions:
+# 1. Go to colab.research.google.com
+# 2. Create new notebook  
+# 3. Copy-paste each section below into separate cells
+# 4. Run cells one by one
+# 5. Download your APK!
+
+# ==================== COPY THIS INTO CELL 1 ====================
+print("🔄 Setting up environment...")
+!apt-get update -qq && apt-get install -y -qq openjdk-8-jdk git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+import os
+os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk-amd64'
+!pip install -q cython==0.29.36 buildozer==1.5.0
+print("✅ Environment ready!")
+
+# ==================== COPY THIS INTO CELL 2 ====================
+print("📥 Getting project...")
+!git clone https://github.com/Bharath-git-code/cashlytics-transaction-tracker.git
+%cd cashlytics-transaction-tracker
+print("✅ Project downloaded!")
+
+# ==================== COPY THIS INTO CELL 3 ====================  
+print("🔧 Android setup...")
+!mkdir -p /root/.android/licenses
+!echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > /root/.android/licenses/android-sdk-license
+!echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> /root/.android/licenses/android-sdk-license
+!echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> /root/.android/licenses/android-sdk-license
+print("✅ Android ready!")
+
+# ==================== COPY THIS INTO CELL 4 ====================
+print("📋 Build prep...")
+!cp buildozer-stable.spec buildozer.spec
+!rm -rf .buildozer bin
+print("✅ Ready to build!")
+
+# ==================== COPY THIS INTO CELL 5 (TAKES 15 MINS) ====================
+print("🚀 Building APK - please wait 15 minutes...")
+import os
+os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk-amd64'
+!buildozer android debug
+print("🎉 Build done!")
+
+# ==================== COPY THIS INTO CELL 6 ====================
+print("📱 Getting your APK...")
+import os
+from google.colab import files
+for root, dirs, filenames in os.walk('.'):
+    for filename in filenames:
+        if filename.endswith('.apk'):
+            apk_path = os.path.join(root, filename)
+            print(f"Found: {filename}")
+            !cp "{apk_path}" "cashlytics.apk"
+            files.download("cashlytics.apk")
+            print("✅ APK downloaded to your computer!")
+            break
