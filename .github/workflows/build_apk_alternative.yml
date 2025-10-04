@@ -23,20 +23,24 @@ jobs:
             build-essential \
             git \
             unzip \
-            openjdk-8-jdk \
+            openjdk-17-jdk \
             python3-pip \
             python3-setuptools \
             python3-dev \
-            ffmpeg \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev
+            python3-venv \
+            zlib1g-dev \
+            libffi-dev \
+            libssl-dev \
+            libbz2-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            xz-utils \
+            tk-dev \
+            libxml2-dev \
+            libxmlsec1-dev \
+            liblzma-dev
 
       - name: Install Buildozer
         run: |
@@ -45,45 +49,54 @@ jobs:
 
       - name: Set up Android SDK manually
         run: |
-          # Download Android SDK
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
-          unzip -q commandlinetools-linux-8512546_latest.zip
-          
-          # Create SDK directory
+          # Set up directories
           mkdir -p $HOME/android-sdk
-          mv cmdline-tools $HOME/android-sdk/
-          mkdir -p $HOME/android-sdk/cmdline-tools/latest
-          mv $HOME/android-sdk/cmdline-tools/* $HOME/android-sdk/cmdline-tools/latest/ || true
+          cd $HOME/android-sdk
           
-          # Set environment variables
-          echo "export ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "export ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
-          echo "export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools" >> $GITHUB_ENV
+          # Download and extract command line tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          
+          # Organize command line tools
+          mkdir -p cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/ 2>/dev/null || true
+          
+          # Set environment variables for this session
+          export ANDROID_HOME=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+          
+          # Make environment variables persistent
+          echo "ANDROID_HOME=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> $GITHUB_ENV
+          echo "$HOME/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$HOME/android-sdk/platform-tools" >> $GITHUB_PATH
 
       - name: Install Android components
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools
-          
           # Accept licenses and install components
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
             "platforms;android-30" \
             "build-tools;30.0.3" \
-            "ndk;21.4.7075529"
+            "ndk;23.2.8568313"
+          
+          # Verify installation
+          echo "Installed Android components:"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
 
       - name: Build APK
         run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$HOME/android-sdk/cmdline-tools/latest/bin:$HOME/android-sdk/platform-tools
-          
           # Show buildozer.spec content
           echo "=== buildozer.spec content ==="
           cat buildozer.spec
           echo "=============================="
+          
+          # Show environment
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "PATH includes Android tools: $(echo $PATH | grep android || echo 'not found')"
           
           # Build with maximum verbosity
           buildozer android debug --verbose
