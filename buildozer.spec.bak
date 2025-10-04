@@ -53,6 +53,9 @@ android.ndk = 25b
 # (str) Android SDK version to use
 android.sdk = 33
 
+# (str) Android build tools version
+android.build_tools = 33.0.2
+
 # (str) Android entry point, default is ok for Kivy-based app
 android.entrypoint = org.kivy.android.PythonActivity
 

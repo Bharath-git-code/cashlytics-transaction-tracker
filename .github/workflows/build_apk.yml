@@ -18,7 +18,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -28,11 +28,27 @@ jobs:
       - name: Setup Java JDK
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK components
+        run: |
+          # Accept all licenses first
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          
+          # Install specific build tools and platforms
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platforms;android-33" \
+            "build-tools;33.0.2" \
+            "ndk;25.2.9519653" \
+            "platform-tools"
+          
+          # Verify installation
+          echo "Android SDK components installed:"
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
 
       - name: Verify workspace structure
         run: |
@@ -51,7 +67,7 @@ jobs:
           path: ~/.buildozer
           key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
 
-      - name: Cache Buildozer local directory  
+      - name: Cache Buildozer local directory
         uses: actions/cache@v4
         with:
           path: .buildozer
@@ -62,7 +78,7 @@ jobs:
           # Check current directory and files
           pwd
           ls -la
-          
+
           # Verify buildozer.spec exists
           if [ ! -f "buildozer.spec" ]; then
             echo "ERROR: buildozer.spec not found in current directory!"
@@ -73,16 +89,13 @@ jobs:
               cp buildozer.spec.bak buildozer.spec
             fi
           fi
-          
+
           # Show buildozer.spec content (first 20 lines)
           echo "=== buildozer.spec content ==="
           head -20 buildozer.spec
           echo "=============================="
-          
-          # Accept Android SDK licenses
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          
-          # Build the APK
+
+          # Build the APK (licenses already accepted above)
           buildozer android debug
 
       - name: Find APK file
