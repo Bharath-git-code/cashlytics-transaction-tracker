@@ -77,7 +77,7 @@ jobs:
           # Set environment variables first
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$HOME/android-sdk
-          
+
           # Create licenses directory and accept all licenses automatically
           mkdir -p $ANDROID_HOME/licenses
           echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_HOME/licenses/android-sdk-license
@@ -118,7 +118,7 @@ jobs:
           # Check build-tools directory structure
           echo "=== Build-tools directory ==="
           ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "No build-tools directory found"
-          
+
           if [ -d "$ANDROID_HOME/build-tools" ]; then
             for dir in $ANDROID_HOME/build-tools/*/; do
               if [ -d "$dir" ]; then
@@ -147,7 +147,7 @@ jobs:
       - name: Manual build-tools installation (fallback)
         run: |
           export ANDROID_HOME=$HOME/android-sdk
-          
+
           # Check if we have build-tools, if not download manually
           if [ ! -d "$ANDROID_HOME/build-tools/30.0.3" ]; then
             echo "Build-tools 30.0.3 not found, downloading manually..."
@@ -238,7 +238,7 @@ jobs:
           ls -la $ANDROID_HOME/build-tools/ || echo "No build-tools directory"
           echo "Looking for aidl tool:"
           find $ANDROID_HOME -name "aidl" -type f 2>/dev/null | head -5
-          
+
           # Make sure aidl is executable
           if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then
             chmod +x "$ANDROID_HOME/build-tools/30.0.3/aidl"

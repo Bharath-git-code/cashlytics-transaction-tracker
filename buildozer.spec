@@ -42,25 +42,25 @@ android.add_gradle_repositories = google()
 android.archs = arm64-v8a, armeabi-v7a
 
 # (int) Target Android API, should be as high as possible.
-android.api = 30
+android.api = 33
 
 # (int) Minimum API your APK will support.
 android.minapi = 21
 
 # (str) Android NDK version to use
-android.ndk = 23b
+android.ndk = 25b
 
 # (str) Android SDK version to use
-android.sdk = 30
+android.sdk = 33
 
 # (str) Android build tools version
-android.build_tools = 30.0.3
+android.build_tools = 33.0.2
 
 # (str) Android SDK directory (if not using default)
-android.sdk_path = /home/runner/android-sdk
+# android.sdk_path = /home/runner/android-sdk
 
 # (str) Android NDK directory (if not using default)  
-android.ndk_path = /home/runner/android-sdk/ndk/23.2.8568313
+# android.ndk_path = /home/runner/android-sdk/ndk/23.2.8568313
 
 # (str) Android entry point, default is ok for Kivy-based app
 android.entrypoint = org.kivy.android.PythonActivity

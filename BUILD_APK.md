@@ -39,10 +39,41 @@ Your APK will be created in:
 
 ## Troubleshooting
 
+### Android SDK License Issues
+
+If you get license acceptance errors:
+
+1. **GitHub Actions**: The workflow now automatically accepts licenses
+2. **Docker**: Use the updated Dockerfile which handles SDK setup
+3. **WSL2**: Run `./wsl_setup.sh` which accepts licenses automatically
+4. **Manual License Accept**:
+   ```bash
+   yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+   ```
+
+### Build Tools Not Found
+
+If you get "build-tools folder not found" or "Aidl not found":
+
+1. Ensure Android SDK is properly installed
+2. Check that `buildozer.spec` has correct versions:
+   - `android.api = 33`
+   - `android.build_tools = 33.0.2`
+   - `android.ndk = 25b`
+3. Verify environment variables:
+   ```bash
+   export ANDROID_HOME=/path/to/android-sdk
+   export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+   ```
+
+### Common Fixes
+
+- Clean buildozer cache: `buildozer android clean`
+- Update buildozer: `pip install --upgrade buildozer`
 - Ensure all dependencies are in requirements.txt
 - Check buildozer.spec for correct package name and version
 - For Windows users, Docker or GitHub Actions are recommended
-- Linux users can use buildozer directly
+- Linux users can use buildozer directly after running `./wsl_setup.sh`
 
 ## APK Location
 
