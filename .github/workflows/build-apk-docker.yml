@@ -1,17 +1,23 @@
-name: Build APK (Docker Alternative)
+name: Build APK (Docker Alternative) - DISABLED
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ main, develop ]
-    paths: 
-      - '**.py'
-      - 'buildozer.spec'
-      - 'requirements.txt'
+  # Disabled due to Docker compatibility issues
+  # workflow_dispatch:
+  # push:
+  #   branches: [ main, develop ]
+  #   paths: 
+  #     - '**.py'
+  #     - 'buildozer.spec'
+  #     - 'requirements.txt'
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: false  # Disable this workflow
+    
+    steps:
+    - name: Disabled
+      run: echo "This workflow is disabled due to Docker compatibility issues. Use 'Build APK (Recommended)' instead."
     
     steps:
     - name: Checkout repository
