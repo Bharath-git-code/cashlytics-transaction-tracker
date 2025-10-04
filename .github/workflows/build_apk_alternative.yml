@@ -88,35 +88,83 @@ jobs:
           echo "601085b94cd77f0b54ff86406957099ebe79c4d6" > $ANDROID_HOME/licenses/google-gdk-license
           echo "33b6a2b64607f11b759f320ef9dff4ae5c47d97a" > $ANDROID_HOME/licenses/mips-android-sysimage-license
 
-          # Force accept licenses non-interactively
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          echo y | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # Accept licenses using multiple methods
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          echo "y
+          y
+          y
+          y
+          y
+          y
+          y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
 
-          # Install specific versions that match our buildozer.spec
+          # Install components with explicit version control
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
             "platform-tools" \
-            "platforms;android-30" \
-            "build-tools;30.0.3" \
-            "ndk;23.2.8568313" || true
+            "platforms;android-30" || true
 
-          # Install older build-tools versions that buildozer might expect
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-            "build-tools;29.0.3" \
-            "build-tools;28.0.3" || true
+          # Force install the specific build-tools version we need
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;30.0.3" || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3" || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;28.0.3" || true
 
-          # Verify installation
-          echo "Installed Android components:"
+          # Install NDK
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;23.2.8568313" || true
+
+          # Verify what we actually installed
+          echo "=== Installed packages ==="
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed
 
-          # Create symlinks to prevent buildozer from looking for newer versions
-          if [ -d "$ANDROID_HOME/build-tools/30.0.3" ]; then
-            ln -sf "$ANDROID_HOME/build-tools/30.0.3" "$ANDROID_HOME/build-tools/latest" || true
+          # Check build-tools directory structure
+          echo "=== Build-tools directory ==="
+          ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "No build-tools directory found"
+          
+          if [ -d "$ANDROID_HOME/build-tools" ]; then
+            for dir in $ANDROID_HOME/build-tools/*/; do
+              if [ -d "$dir" ]; then
+                echo "Found build-tools version: $(basename $dir)"
+                ls -la "$dir" | grep aidl || echo "No aidl in $(basename $dir)"
+              fi
+            done
           fi
 
-          # Verify aidl exists
-          echo "Checking for aidl tool:"
-          find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "aidl not found"
-          ls -la $ANDROID_HOME/build-tools/*/aidl 2>/dev/null || echo "No aidl in build-tools"
+          # Create symlinks for compatibility
+          if [ -d "$ANDROID_HOME/build-tools/30.0.3" ]; then
+            ln -sf "$ANDROID_HOME/build-tools/30.0.3" "$ANDROID_HOME/build-tools/latest" 2>/dev/null || true
+            echo "Created symlink: latest -> 30.0.3"
+          fi
+
+          # Make aidl executable if found
+          find $ANDROID_HOME -name "aidl" -type f -exec chmod +x {} \; 2>/dev/null || true
+
+          # Final verification
+          echo "=== Final aidl check ==="
+          find $ANDROID_HOME -name "aidl" -type f 2>/dev/null | while read aidl_path; do
+            echo "Found aidl at: $aidl_path"
+            ls -la "$aidl_path"
+          done
+
+      - name: Manual build-tools installation (fallback)
+        run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          
+          # Check if we have build-tools, if not download manually
+          if [ ! -d "$ANDROID_HOME/build-tools/30.0.3" ]; then
+            echo "Build-tools 30.0.3 not found, downloading manually..."
+            mkdir -p $ANDROID_HOME/build-tools
+            cd $ANDROID_HOME/build-tools
+            
+            # Download build-tools 30.0.3 directly
+            wget -q https://dl.google.com/android/repository/build-tools_r30.0.3-linux.zip
+            unzip -q build-tools_r30.0.3-linux.zip
+            mv android-* 30.0.3 2>/dev/null || true
+            
+            # Make all tools executable
+            chmod +x 30.0.3/* 2>/dev/null || true
+            
+            echo "Manually installed build-tools 30.0.3"
+            ls -la 30.0.3/aidl 2>/dev/null || echo "aidl still not found after manual install"
+          fi
 
       - name: Build APK
         run: |

@@ -1,0 +1,119 @@
+name: Build APK (Simple)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            git \
+            unzip \
+            openjdk-17-jdk \
+            python3-pip \
+            python3-dev \
+            zlib1g-dev \
+            libffi-dev \
+            libssl-dev
+
+      - name: Set up Android SDK with action
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 30
+          build-tools-version: 30.0.3
+          ndk-version: 23.2.8568313
+
+      - name: Install Buildozer
+        run: |
+          pip install --upgrade pip wheel setuptools
+          pip install buildozer cython
+
+      - name: Verify Android setup
+        run: |
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          ls -la $ANDROID_HOME/build-tools/ 2>/dev/null || echo "No build-tools"
+          find $ANDROID_HOME -name "aidl" -type f 2>/dev/null || echo "aidl not found"
+
+      - name: Create buildozer.spec
+        run: |
+          if [ ! -f "buildozer.spec" ]; then
+            cat > buildozer.spec << 'EOF'
+[app]
+title = Cashlytics
+package.name = cashlytics
+package.domain = org.personal.cashlytics
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,txt,db
+source.include_patterns = assets/*,screens/*
+version = 0.1
+requirements = python3,kivy==2.3.0,kivymd==1.2.0,sqlite3,pillow
+orientation = portrait
+fullscreen = 0
+
+android.archs = arm64-v8a
+android.api = 30
+android.minapi = 21
+android.ndk = 23b
+android.sdk = 30
+android.build_tools = 30.0.3
+android.entrypoint = org.kivy.android.PythonActivity
+android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
+icon.filename = assets/icons/logo.png
+
+[buildozer]
+log_level = 2
+warn_on_root = 0
+EOF
+          fi
+
+          echo "=== buildozer.spec content ==="
+          cat buildozer.spec
+
+      - name: Build APK
+        run: |
+          # Export environment
+          export ANDROID_HOME=$ANDROID_HOME
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$PATH:$ANDROID_HOME/build-tools/30.0.3:$ANDROID_HOME/platform-tools
+          
+          # Clean and build
+          buildozer android clean || true
+          buildozer android debug --verbose
+
+      - name: Find and upload APK
+        run: |
+          APK_FILE=$(find . -name "*.apk" -type f | head -1)
+          if [ -z "$APK_FILE" ]; then
+            echo "No APK found in current directory, checking bin..."
+            APK_FILE=$(find bin/ -name "*.apk" -type f 2>/dev/null | head -1)
+          fi
+
+          if [ -z "$APK_FILE" ]; then
+            echo "ERROR: No APK file found!"
+            exit 1
+          fi
+
+          echo "Found APK: $APK_FILE"
+          echo "APK_FILE=$APK_FILE" >> $GITHUB_ENV
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cashlytics-apk-simple
+          path: ${{ env.APK_FILE }}
+          if-no-files-found: error
