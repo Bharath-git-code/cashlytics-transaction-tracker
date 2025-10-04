@@ -95,7 +95,7 @@ jobs:
               echo "Creating minimal buildozer.spec"
               buildozer init
               # Replace with our configuration
-              cat > buildozer.spec << 'EOF'
+              cat > buildozer.spec << EOF
 [app]
 title = Cashlytics
 package.name = cashlytics
@@ -112,7 +112,6 @@ fullscreen = 0
 log_level = 2
 warn_on_root = 0
 
-# Android specific
 android.archs = arm64-v8a
 android.api = 30
 android.minapi = 21
