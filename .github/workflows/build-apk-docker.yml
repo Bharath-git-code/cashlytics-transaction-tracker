@@ -1,92 +1,47 @@
-name: Build APK (Docker Alternative) - DISABLED
+name: Build APK (Docker)
 
 on:
-  # Disabled due to Docker compatibility issues
-  # workflow_dispatch:
-  # push:
-  #   branches: [ main, develop ]
-  #   paths: 
-  #     - '**.py'
-  #     - 'buildozer.spec'
-  #     - 'requirements.txt'
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: false  # Disable this workflow
-    
-    steps:
-    - name: Disabled
-      run: echo "This workflow is disabled due to Docker compatibility issues. Use 'Build APK (Recommended)' instead."
     
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-
-    - name: Build Docker image
+      
+    - name: Build APK using Docker
       run: |
-        docker build -t cashlytics-builder .
-
-    - name: Build APK with Docker
-      run: |
-        # Create bin directory
-        mkdir -p bin
+        # Pull the latest Kivy buildozer Docker image
+        docker pull kivy/buildozer:latest
         
-        # Run Docker container to build APK
+        # Run buildozer in Docker container
         docker run --rm \
-          -v "${{ github.workspace }}:/app" \
-          -w /app \
-          cashlytics-builder \
+          -v ${{ github.workspace }}:/home/user/app \
+          -w /home/user/app \
+          kivy/buildozer:latest \
           bash -c "
-            export ANDROID_HOME=/opt/android-sdk
-            export ANDROID_SDK_ROOT=/opt/android-sdk
-            export PATH=\$PATH:\$ANDROID_HOME/cmdline-tools/latest/bin:\$ANDROID_HOME/platform-tools
+            # Accept Android SDK licenses
+            yes | \$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
             
-            # Debug: Check Android SDK setup
-            echo 'Checking Android SDK setup...'
-            ls -la /opt/android-sdk/
-            ls -la /opt/android-sdk/build-tools/
-            /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --list_installed
+            # Install additional Python packages
+            pip install kivymd
             
-            # Accept licenses again just in case
-            yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --licenses
-            
-            # Clean any previous builds
-            buildozer android clean || true
-            
-            # Force buildozer to use system Android SDK
-            mkdir -p ~/.buildozer/android/platform
-            ln -sf /opt/android-sdk ~/.buildozer/android/platform/android-sdk
-            
-            # Build APK with verbose output
-            buildozer -v android debug
+            # Build the APK
+            buildozer android debug
           "
-
-    - name: Check build output
-      run: |
-        echo "Checking for APK files..."
-        find . -name "*.apk" -type f
-        ls -la bin/ || echo "bin directory not found"
-
-    - name: Upload APK artifact
+    
+    - name: Upload APK
       uses: actions/upload-artifact@v4
-      if: always()
       with:
         name: cashlytics-apk-docker
-        path: |
-          bin/*.apk
-          *.apk
+        path: bin/*.apk
         retention-days: 30
-
-    - name: Upload buildozer logs
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: buildozer-logs-docker
-        path: |
-          .buildozer/android/platform/build-*/logs/
-          .buildozer/android/platform/python-for-android/
-        retention-days: 7
+        
+    - name: List generated files
+      run: |
+        echo "Generated files:"
+        find bin/ -name "*.apk" -exec ls -lh {} \; || echo "No APK files found"

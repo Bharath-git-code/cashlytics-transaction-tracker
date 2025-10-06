@@ -49,6 +49,12 @@ android.minapi = 21
 # (str) Android SDK directory (leave empty to auto-download)
 # android.sdk_dir =
 
+# (str) Android NDK version to use
+android.ndk = 25b
+
+# (str) Android SDK build tools version
+android.sdk_build_tools = 33.0.2
+
 # (str) Kivy version to use (e.g., 'master' for latest development version)
 # You can also specify a specific version number like '2.2.1'
 # android.kivy_version = 2.3.0
