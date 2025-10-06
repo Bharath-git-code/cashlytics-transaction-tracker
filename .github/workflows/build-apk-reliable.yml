@@ -1,0 +1,129 @@
+name: Build APK (Reliable)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          git \
+          zlib1g-dev \
+          libncurses5:i386 \
+          libstdc++6:i386 \
+          zlib1g:i386 \
+          openjdk-8-jdk \
+          unzip \
+          ant \
+          ccache \
+          autoconf \
+          libtool \
+          pkg-config \
+          libffi-dev \
+          libssl-dev
+
+    - name: Setup Android SDK manually
+      run: |
+        # Create directories
+        sudo mkdir -p $GITHUB_WORKSPACE/android-sdk/cmdline-tools
+        cd $GITHUB_WORKSPACE
+        
+        # Download Android command line tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+        unzip -q commandlinetools-linux-9477386_latest.zip
+        
+        # Move to correct location
+        mv cmdline-tools android-sdk/cmdline-tools/latest
+        
+        # Set environment variables
+        echo "ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        echo "ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk" >> $GITHUB_ENV
+        echo "$GITHUB_WORKSPACE/android-sdk/cmdline-tools/latest/bin" >> $GITHUB_PATH
+        echo "$GITHUB_WORKSPACE/android-sdk/platform-tools" >> $GITHUB_PATH
+
+    - name: Accept licenses and install SDK components
+      run: |
+        export ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk
+        export ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk
+        
+        # Accept all licenses non-interactively
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        
+        # Install required SDK components
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+          "platform-tools" \
+          "platforms;android-33" \
+          "build-tools;33.0.2" \
+          "ndk;25.2.9519653"
+
+    - name: Install Python build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install buildozer cython
+
+    - name: Cache buildozer global
+      uses: actions/cache@v3
+      with:
+        path: ~/.buildozer
+        key: ${{ runner.os }}-buildozer-global-${{ hashFiles('buildozer.spec') }}
+
+    - name: Cache buildozer local
+      uses: actions/cache@v3
+      with:
+        path: .buildozer
+        key: ${{ runner.os }}-buildozer-local-${{ hashFiles('buildozer.spec') }}-${{ hashFiles('requirements.txt') }}
+
+    - name: Build APK
+      run: |
+        export ANDROID_HOME=$GITHUB_WORKSPACE/android-sdk
+        export ANDROID_SDK_ROOT=$GITHUB_WORKSPACE/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        
+        # Debug environment
+        echo "ANDROID_HOME: $ANDROID_HOME"
+        echo "Android SDK components:"
+        ls -la $ANDROID_HOME/
+        
+        # Build
+        buildozer android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      if: success()
+      with:
+        name: cashlytics-apk
+        path: bin/*.apk
+        retention-days: 30
+
+    - name: Upload logs on failure
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: build-logs
+        path: |
+          .buildozer/android/platform/build-*/logs/
+          .buildozer/
+        retention-days: 7
+        if-no-files-found: ignore

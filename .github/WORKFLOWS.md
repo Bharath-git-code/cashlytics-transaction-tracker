@@ -5,6 +5,7 @@ This project includes several GitHub Actions workflows for building the Cashlyti
 ## 🚀 Recommended Workflow
 
 ### **"Build APK"** (`build-apk-recommended.yml`)
+
 - ✅ **Use this one** - Most reliable
 - 🏗️ **Native Ubuntu setup** (no Docker)
 - 🔧 **Automatic license handling**
@@ -14,20 +15,24 @@ This project includes several GitHub Actions workflows for building the Cashlyti
 ## 📋 Other Workflows
 
 ### **"Build APK (Basic)"** (`build-apk-basic.yml`)
+
 - 🔄 **Backup option** if main workflow fails
 - 🏗️ Native Ubuntu with simpler setup
 - 🛠️ Manual trigger only
 
 ### **"Debug Build Environment"** (`debug-build.yml`)
+
 - 🔍 **Troubleshooting only**
 - ✅ Tests environment setup
 - 🛠️ Manual trigger only
 
 ### **"Build APK (Simple Docker)"** - DISABLED
+
 - ❌ **Disabled** due to Docker compatibility issues
 - 🐳 Had Java classpath problems with Android SDK
 
-### **"Build APK (Docker Alternative)"** - DISABLED  
+### **"Build APK (Docker Alternative)"** - DISABLED
+
 - ❌ **Disabled** due to Docker compatibility issues
 - 🐳 Had SDK licensing problems
 
@@ -40,11 +45,12 @@ This project includes several GitHub Actions workflows for building the Cashlyti
 ## 🛠️ Local Development
 
 For local builds, use:
+
 ```bash
 # Windows PowerShell
 .\build_apk.ps1
 
-# WSL2/Linux  
+# WSL2/Linux
 ./debug_android_sdk.sh  # For troubleshooting
 buildozer android debug
 ```
